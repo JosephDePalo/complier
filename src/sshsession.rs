@@ -4,6 +4,7 @@ use std::net::TcpStream;
 use mlua::{UserData, UserDataMethods};
 use ssh2::Session;
 
+#[derive(Clone)]
 pub struct SSHSession {
     sess: Session,
 }
@@ -34,7 +35,7 @@ impl SSHSession {
 impl UserData for SSHSession {
     fn add_methods<M: UserDataMethods<Self>>(methods: &mut M) {
         // Expose a 'run_command' method to Lua
-        methods.add_method_mut("run_cmd", |_, ssh_session, command: String| {
+        methods.add_method("run_cmd", |_, ssh_session, command: String| {
             Ok(ssh_session.run_cmd(command.as_str()))
         });
     }
