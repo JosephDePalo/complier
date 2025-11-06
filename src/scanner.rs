@@ -2,7 +2,7 @@ use std::fs;
 use std::sync::{Arc, Mutex};
 
 use crate::luaregex::LuaRegex;
-use mlua::{Function, Lua, Table, prelude::*};
+use mlua::{prelude::*, Function, Lua, Table};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
@@ -28,7 +28,11 @@ pub struct CheckResult {
 }
 
 impl CheckResult {
-    pub fn from_check(check: &CheckDefinition, compliance: bool, msg: String) -> Self {
+    pub fn from_check(
+        check: &CheckDefinition,
+        compliance: bool,
+        msg: String,
+    ) -> Self {
         Self {
             id: check.id.clone(),
             name: check.name.clone(),
@@ -55,18 +59,19 @@ impl Scanner {
         let registry: CheckRegistry = Arc::new(Mutex::new(Vec::new()));
         let registry_clone = Arc::clone(&registry);
 
-        let register_check_fn = lua.create_function_mut(move |_, check_table: Table| {
-            let check_def = CheckDefinition {
-                id: check_table.get("id")?,
-                name: check_table.get("name")?,
-                description: check_table.get("description")?,
-                severity: check_table.get("severity")?,
-                run: check_table.get("run")?,
-            };
-            let mut registry_guard = registry_clone.lock().unwrap();
-            registry_guard.push(check_def);
-            Ok(())
-        })?;
+        let register_check_fn =
+            lua.create_function_mut(move |_, check_table: Table| {
+                let check_def = CheckDefinition {
+                    id: check_table.get("id")?,
+                    name: check_table.get("name")?,
+                    description: check_table.get("description")?,
+                    severity: check_table.get("severity")?,
+                    run: check_table.get("run")?,
+                };
+                let mut registry_guard = registry_clone.lock().unwrap();
+                registry_guard.push(check_def);
+                Ok(())
+            })?;
 
         // Setup regex passthrough
         let compile_fn = lua
@@ -104,11 +109,15 @@ impl Scanner {
         }
     }
 
-    pub fn run_checks(self: &Self, session: mlua::AnyUserData) -> mlua::Result<Database> {
+    pub fn run_checks(
+        self: &Self,
+        session: mlua::AnyUserData,
+    ) -> mlua::Result<Database> {
         let registry_guard = self.registry.lock().unwrap();
         let mut db: Database = vec![];
         for check in registry_guard.iter() {
-            let (status, msg): (bool, String) = check.run.call((session.clone(),))?;
+            let (status, msg): (bool, String) =
+                check.run.call((session.clone(),))?;
             db.push(CheckResult::from_check(check, status, msg));
         }
         Ok(db)

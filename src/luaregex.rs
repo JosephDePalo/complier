@@ -1,4 +1,4 @@
-use mlua::{UserData, UserDataMethods, prelude::*};
+use mlua::{prelude::*, UserData, UserDataMethods};
 use regex::Regex;
 
 pub struct LuaRegex(pub Regex);
@@ -27,7 +27,9 @@ impl UserData for LuaRegex {
                     tbl.set(
                         i,
                         mat.map_or(LuaValue::Nil, |m| {
-                            LuaValue::String(lua.create_string(m.as_str()).unwrap())
+                            LuaValue::String(
+                                lua.create_string(m.as_str()).unwrap(),
+                            )
                         }),
                     )?;
                 }
