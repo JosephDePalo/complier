@@ -2,7 +2,7 @@ use std::fs;
 use std::sync::{Arc, Mutex};
 
 use crate::luaregex::LuaRegex;
-use mlua::{prelude::*, Function, Lua, Table};
+use mlua::{Function, Lua, Table, prelude::*};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
@@ -121,5 +121,10 @@ impl Scanner {
             db.push(CheckResult::from_check(check, status, msg));
         }
         Ok(db)
+    }
+
+    pub fn exclude_checks(self: &Self, ids: &Vec<String>) {
+        let mut registry_guard = self.registry.lock().unwrap();
+        registry_guard.retain(|c| !ids.contains(&c.id));
     }
 }
