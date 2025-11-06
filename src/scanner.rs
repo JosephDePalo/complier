@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex};
 use crate::luaregex::LuaRegex;
 use mlua::{Function, Lua, Table, prelude::*};
 use regex::Regex;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone)]
 pub struct CheckDefinition {
@@ -16,7 +17,30 @@ pub struct CheckDefinition {
 
 type CheckRegistry = Arc<Mutex<Vec<CheckDefinition>>>;
 
-pub type Database = Vec<(String, String, String)>;
+#[derive(Serialize, Deserialize)]
+pub struct CheckResult {
+    id: String,
+    name: String,
+    description: String,
+    severity: String,
+    compliant: bool,
+    message: String,
+}
+
+impl CheckResult {
+    pub fn from_check(check: &CheckDefinition, compliance: bool, msg: String) -> Self {
+        Self {
+            id: check.id.clone(),
+            name: check.name.clone(),
+            description: check.description.clone(),
+            severity: check.severity.clone(),
+            compliant: compliance,
+            message: if msg != "" { msg } else { String::from("") },
+        }
+    }
+}
+
+pub type Database = Vec<CheckResult>;
 
 pub struct Scanner {
     pub lua: Lua,
@@ -82,10 +106,10 @@ impl Scanner {
 
     pub fn run_checks(self: &Self, session: mlua::AnyUserData) -> mlua::Result<Database> {
         let registry_guard = self.registry.lock().unwrap();
-        let mut db: Vec<(String, String, String)> = vec![];
+        let mut db: Database = vec![];
         for check in registry_guard.iter() {
-            let (status, msg): (String, String) = check.run.call((session.clone(),))?;
-            db.push((check.id.clone(), status, msg));
+            let (status, msg): (bool, String) = check.run.call((session.clone(),))?;
+            db.push(CheckResult::from_check(check, status, msg));
         }
         Ok(db)
     }
