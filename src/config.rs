@@ -1,3 +1,4 @@
+use clap::Parser;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -17,4 +18,12 @@ pub struct Device {
 pub struct Settings {
     pub exclusion_ids: Vec<String>,
     pub check_files: Vec<String>,
+}
+
+#[derive(Parser, Debug)]
+#[command(name = "rsaudit", version, about = "Example CLI tool")]
+pub struct Args {
+    /// Path to config file (optional)
+    #[arg(short, long)]
+    pub config: Option<String>,
 }

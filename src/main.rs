@@ -1,13 +1,23 @@
-use std::fs;
+use std::io::Read;
+use std::{fs, io};
 
-use rsaudit::config::Config;
+use clap::Parser;
+use rsaudit::config::{Args, Config};
 use rsaudit::scanner::{Database, Scanner};
 use rsaudit::sshsession::SSHSession;
 use std::collections::HashMap;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let toml_str = fs::read_to_string("config.toml").unwrap();
-    let config: Config = toml::from_str(&toml_str).unwrap();
+    let args = Args::parse();
+    let contents = if let Some(path) = args.config {
+        fs::read_to_string(path)?
+    } else {
+        let mut buffer = String::new();
+        io::stdin().read_to_string(&mut buffer)?;
+        buffer
+    };
+
+    let config: Config = toml::from_str(&contents).unwrap();
     let scanner = Scanner::new().unwrap();
     for file_path in &config.settings.check_files {
         scanner.load_file(file_path).unwrap();
