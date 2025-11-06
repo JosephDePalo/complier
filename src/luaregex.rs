@@ -1,4 +1,4 @@
-use mlua::{prelude::*, UserData, UserDataMethods};
+use mlua::{UserData, UserDataMethods, prelude::*};
 use regex::Regex;
 
 pub struct LuaRegex(pub Regex);

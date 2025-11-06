@@ -3,12 +3,18 @@ use std::sync::Arc;
 use async_ssh2_tokio::{AuthMethod, Client};
 use mlua::{UserData, UserDataMethods};
 
+use anyhow::{Context, Result};
+
 pub struct SSHSession {
     client: Arc<Client>,
 }
 
 impl SSHSession {
-    pub async fn new(addr: &str, username: &str, password: &str) -> Self {
+    pub async fn new(
+        addr: &str,
+        username: &str,
+        password: &str,
+    ) -> Result<Self> {
         let authn_method = AuthMethod::with_password(password);
         let client = Client::connect(
             addr,
@@ -17,15 +23,20 @@ impl SSHSession {
             async_ssh2_tokio::ServerCheckMethod::NoCheck,
         )
         .await
-        .unwrap();
+        .context(format!("Failed to establish connection to '{}'", addr))?;
 
-        Self {
+        Ok(Self {
             client: Arc::new(client),
-        }
+        })
     }
 
-    pub async fn run_cmd(self: &Self, cmd: &str) -> String {
-        self.client.execute(cmd).await.unwrap().stdout
+    pub async fn run_cmd(self: &Self, cmd: &str) -> Result<String> {
+        Ok(self
+            .client
+            .execute(cmd)
+            .await
+            .context(format!("Failed to execute command '{}'", cmd))?
+            .stdout)
     }
 }
 
@@ -35,7 +46,13 @@ impl UserData for SSHSession {
         methods.add_async_method(
             "run_cmd",
             |_, ssh_session, command: String| async move {
-                Ok(ssh_session.run_cmd(command.as_str()).await)
+                match ssh_session.run_cmd(command.as_str()).await {
+                    Ok(result) => Ok(result),
+                    Err(e) => Err(mlua::Error::RuntimeError(format!(
+                        "SSH command failed: {}",
+                        e
+                    ))),
+                }
             },
         );
     }

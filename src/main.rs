@@ -2,14 +2,16 @@ use std::io::Read;
 use std::sync::Arc;
 use std::{fs, io};
 
+use anyhow::Result;
 use clap::Parser;
 use rsaudit::config::{Args, Config};
-use rsaudit::scanner::{Database, Scanner};
+use rsaudit::scanner::{CheckResult, Database, Scanner};
 use rsaudit::sshsession::SSHSession;
 use std::collections::HashMap;
+use tokio::task::JoinHandle;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<()> {
     let args = Args::parse();
     let contents = if let Some(path) = args.config {
         fs::read_to_string(path)?
@@ -19,35 +21,40 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         buffer
     };
 
-    let config: Config = toml::from_str(&contents).unwrap();
-    let scanner = Arc::new(Scanner::new().unwrap());
+    let config: Config = toml::from_str(&contents)?;
+    let scanner = Arc::new(Scanner::new()?);
     for file_path in &config.settings.check_files {
-        scanner.load_file(file_path).unwrap();
+        scanner.load_file(file_path)?;
     }
-    scanner.exclude_checks(&config.settings.exclusion_ids);
+    scanner.exclude_checks(&config.settings.exclusion_ids)?;
     let mut handles = Vec::new();
     for device in config.devices {
         let scanner = scanner.clone();
-        let handle = tokio::task::spawn(async move {
-            let session = SSHSession::new(
-                device.address.as_str(),
-                device.username.as_str(),
-                device.password.as_str(),
-            )
-            .await;
-            let session_userdata =
-                scanner.lua.create_userdata(session).unwrap();
-            (
-                device.address,
-                scanner.async_run_checks(session_userdata).await.unwrap(),
-            )
-        });
+        let handle: JoinHandle<Result<(String, Vec<CheckResult>)>> =
+            tokio::task::spawn(async move {
+                let session = SSHSession::new(
+                    device.address.as_str(),
+                    device.username.as_str(),
+                    device.password.as_str(),
+                )
+                .await?;
+                let session_userdata = scanner.lua.create_userdata(session)?;
+                Ok((
+                    device.address,
+                    scanner.run_checks(session_userdata).await?,
+                ))
+            });
         handles.push(handle);
     }
     let mut db: HashMap<String, Database> = HashMap::new();
     for handle in handles {
-        if let Ok((address, result)) = handle.await {
-            db.insert(address, result);
+        if let Ok(handle) = handle.await {
+            match handle {
+                Ok((address, result)) => {
+                    db.insert(address, result);
+                }
+                Err(e) => eprintln!("An error occurred: {}", e),
+            }
         }
     }
     let json = serde_json::to_string_pretty(&db)?;

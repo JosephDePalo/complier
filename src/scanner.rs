@@ -2,7 +2,8 @@ use std::fs;
 use std::sync::{Arc, Mutex};
 
 use crate::luaregex::LuaRegex;
-use mlua::{Function, Lua, Table, prelude::*};
+use anyhow::{Context, Result};
+use mlua::{Function, Lua, Table, prelude::LuaError};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
@@ -52,15 +53,15 @@ pub struct Scanner {
 }
 
 impl Scanner {
-    pub fn new() -> mlua::Result<Self> {
+    pub fn new() -> Result<Self> {
         let lua = Lua::new();
 
         // Setup Registry and register_check function
         let registry: CheckRegistry = Arc::new(Mutex::new(Vec::new()));
         let registry_clone = Arc::clone(&registry);
 
-        let register_check_fn =
-            lua.create_function_mut(move |_, check_table: Table| {
+        let register_check_fn = lua
+            .create_function_mut(move |_, check_table: Table| {
                 let check_def = CheckDefinition {
                     id: check_table.get("id")?,
                     name: check_table.get("name")?,
@@ -68,10 +69,17 @@ impl Scanner {
                     severity: check_table.get("severity")?,
                     run: check_table.get("run")?,
                 };
-                let mut registry_guard = registry_clone.lock().unwrap();
+                let mut registry_guard =
+                    registry_clone.lock().map_err(|e| {
+                        mlua::Error::RuntimeError(format!(
+                            "Failed to acquire mutex: {}",
+                            e
+                        ))
+                    })?;
                 registry_guard.push(check_def);
                 Ok(())
-            })?;
+            })
+            .context("Could not create 'register_check' function")?;
 
         // Setup regex passthrough
         let compile_fn = lua
@@ -84,14 +92,21 @@ impl Scanner {
                     Err(e) => Err(LuaError::runtime(e.to_string())),
                 }
             })
-            .unwrap();
+            .context("Could not create 'compile' function")?;
 
-        let regex_module = lua.create_table().unwrap();
-        regex_module.set("compile", compile_fn).unwrap();
+        let regex_module =
+            lua.create_table().context("Could not create table")?;
+        regex_module
+            .set("compile", compile_fn)
+            .context("Could not set 'compile' function in regex module")?;
 
-        lua.globals().set("regex", regex_module).unwrap();
+        lua.globals()
+            .set("regex", regex_module)
+            .context("Could not set 'regex' global")?;
 
-        lua.globals().set("register_check", register_check_fn)?;
+        lua.globals()
+            .set("register_check", register_check_fn)
+            .context("Could not set 'register_check' global")?;
 
         Ok(Scanner { lua, registry })
     }
@@ -102,32 +117,16 @@ impl Scanner {
         Ok(())
     }
 
-    pub fn list_checks(self: &Self) {
-        let registry_guard = self.registry.lock().unwrap();
-        for (i, check) in registry_guard.iter().enumerate() {
-            println!("{}: {:?}", i, check);
-        }
-    }
-
-    pub fn run_checks(
+    pub async fn run_checks(
         self: &Self,
         session: mlua::AnyUserData,
-    ) -> mlua::Result<Database> {
-        let registry_guard = self.registry.lock().unwrap();
-        let mut db: Database = vec![];
-        for check in registry_guard.iter() {
-            let (status, msg): (bool, String) =
-                check.run.call((session.clone(),))?;
-            db.push(CheckResult::from_check(check, status, msg));
-        }
-        Ok(db)
-    }
-
-    pub async fn async_run_checks(
-        self: &Self,
-        session: mlua::AnyUserData,
-    ) -> mlua::Result<Database> {
-        let checks = { self.registry.lock().unwrap().clone() };
+    ) -> Result<Database> {
+        let checks = {
+            self.registry
+                .lock()
+                .map_err(|e| anyhow::anyhow!("Failed to acquire mutex: {}", e))?
+                .clone()
+        };
         let mut db: Database = vec![];
         for check in checks.iter() {
             let (status, msg): (bool, String) =
@@ -137,8 +136,12 @@ impl Scanner {
         Ok(db)
     }
 
-    pub fn exclude_checks(self: &Self, ids: &Vec<String>) {
-        let mut registry_guard = self.registry.lock().unwrap();
+    pub fn exclude_checks(self: &Self, ids: &Vec<String>) -> Result<()> {
+        let mut registry_guard = self
+            .registry
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Failed to acquire mutex: {}", e))?;
         registry_guard.retain(|c| !ids.contains(&c.id));
+        Ok(())
     }
 }
