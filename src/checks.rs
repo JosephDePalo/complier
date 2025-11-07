@@ -18,7 +18,7 @@ pub struct CheckDefinition {
 
 pub type CheckRegistry = Arc<Mutex<Vec<CheckDefinition>>>;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct CheckResult {
     id: String,
     name: String,
@@ -45,6 +45,7 @@ impl CheckResult {
     }
 }
 
+#[derive(Clone)]
 pub struct CheckRunner {
     pub lua: Lua,
     pub registry: CheckRegistry,
@@ -58,6 +59,17 @@ impl CheckRunner {
             .context("Could not initialize Lua interpreter")?;
 
         Ok(CheckRunner { lua, registry })
+    }
+
+    pub fn clear(self: &mut Self) -> Result<()> {
+        self.registry
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Failed to acquire mutex: {}", e))?
+            .clear();
+        self.lua = init_lua(&self.registry)
+            .context("Could not reinitialize Lua interpreter")?;
+
+        Ok(())
     }
 
     pub fn load_file(self: &Self, path: &str) -> mlua::Result<()> {
