@@ -1,7 +1,7 @@
 use clap::Parser;
 use serde::Deserialize;
 
-use scan_core::scanner::ssh::Device;
+use scan_core::db::models::Device;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {

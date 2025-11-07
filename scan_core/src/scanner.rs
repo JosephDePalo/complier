@@ -10,9 +10,10 @@ use std::{
 use anyhow::{Context, Result};
 use tokio::task::JoinHandle;
 
+use crate::db::models::Device;
 use crate::scanner::{
     checks::{CheckResult, CheckRunner},
-    ssh::{Device, SSHSession},
+    ssh::SSHSession,
 };
 
 type ScanResult = HashMap<String, Vec<CheckResult>>;
