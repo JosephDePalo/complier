@@ -2,8 +2,16 @@ use std::sync::Arc;
 
 use async_ssh2_tokio::{AuthMethod, Client};
 use mlua::{UserData, UserDataMethods};
+use serde::Deserialize;
 
 use anyhow::{Context, Result};
+
+#[derive(Debug, Deserialize)]
+pub struct Device {
+    pub address: String,
+    pub username: String,
+    pub password: String,
+}
 
 pub struct SSHSession {
     client: Arc<Client>,

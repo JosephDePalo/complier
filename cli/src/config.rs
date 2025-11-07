@@ -1,17 +1,12 @@
 use clap::Parser;
 use serde::Deserialize;
 
+use scan_core::ssh::Device;
+
 #[derive(Debug, Deserialize)]
 pub struct Config {
     pub devices: Vec<Device>,
     pub settings: Settings,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Device {
-    pub address: String,
-    pub username: String,
-    pub password: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -21,9 +16,8 @@ pub struct Settings {
 }
 
 #[derive(Parser, Debug)]
-#[command(name = "rsaudit", version, about = "Example CLI tool")]
+#[command(name = "scan_core", version, about = "CLI compliance scanning tool")]
 pub struct Args {
-    /// Path to config file (optional)
     #[arg(short, long)]
     pub config: Option<String>,
 }

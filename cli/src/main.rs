@@ -3,8 +3,8 @@ use std::{fs, io};
 
 use anyhow::Result;
 use clap::Parser;
-use rsaudit::config::{Args, Config};
-use rsaudit::scanner::Scanner;
+use cli::config::{Args, Config};
+use scan_core::scanner::Scanner;
 
 #[tokio::main]
 async fn main() -> Result<()> {

@@ -1,0 +1,16 @@
+[package]
+name = "cli"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+scan_core = { path = "../scan_core/"}
+
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+
+
+toml = "0.9.8"
+clap = { version = "4.5.51", features = ["derive"] }

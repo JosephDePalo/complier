@@ -8,8 +8,7 @@ use tokio::task::JoinHandle;
 
 use crate::{
     checks::{CheckResult, CheckRunner},
-    config::Device,
-    ssh_session::SSHSession,
+    ssh::{Device, SSHSession},
 };
 
 type ScanResult = HashMap<String, Vec<CheckResult>>;
