@@ -1,7 +1,7 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, Type};
 
-#[derive(Type, Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, Type, Serialize, Deserialize)]
 #[sqlx(type_name = "severity_level", rename_all = "lowercase")]
 pub enum SeverityLevel {
     Info,
@@ -11,13 +11,13 @@ pub enum SeverityLevel {
     Critical,
 }
 
-#[derive(Type, Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, Type, Serialize, Deserialize)]
 #[sqlx(type_name = "check_type", rename_all = "lowercase")]
 pub enum CheckType {
     Lua,
 }
 
-#[derive(Type, Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, Type, Serialize, Deserialize)]
 #[sqlx(type_name = "check_status", rename_all = "lowercase")]
 pub enum CheckStatus {
     Pass,
@@ -25,7 +25,7 @@ pub enum CheckStatus {
     Error,
 }
 
-#[derive(Type, Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, Type, Serialize, Deserialize)]
 #[sqlx(type_name = "scan_status", rename_all = "lowercase")]
 pub enum ScanStatus {
     Pending,
@@ -46,7 +46,7 @@ pub struct Device {
 pub struct Rule {
     pub id: String,
     pub name: String,
-    pub description: String,
+    pub description: Option<String>,
     pub severity: SeverityLevel,
     pub check_type: CheckType,
     pub script_body: String,
@@ -65,5 +65,5 @@ pub struct ScanResult {
     pub scan_id: i64,
     pub rule_id: String,
     pub status: CheckStatus,
-    pub details: String,
+    pub details: Option<String>,
 }
