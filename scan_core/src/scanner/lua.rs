@@ -1,32 +1,30 @@
 use anyhow::Result;
-use mlua::{Table, UserData, UserDataMethods, prelude::*};
+use mlua::{UserData, UserDataMethods, prelude::*};
 use regex::Regex;
 
-use crate::scanner::checks::{CheckDefinition, CheckRegistry};
-
-pub fn init_lua(registry: &CheckRegistry) -> Result<Lua> {
+pub fn init_lua() -> Result<Lua> {
     let lua = Lua::new();
-    let registry_clone = registry.clone();
-
-    let register_check_fn = lua
-        .create_function_mut(move |_, check_table: Table| {
-            let check_def = CheckDefinition {
-                id: check_table.get("id")?,
-                name: check_table.get("name")?,
-                description: check_table.get("description")?,
-                severity: check_table.get("severity")?,
-                run: check_table.get("run")?,
-            };
-            let mut registry_guard = registry_clone.lock().map_err(|e| {
-                mlua::Error::RuntimeError(format!(
-                    "Failed to acquire mutex: {}",
-                    e
-                ))
-            })?;
-            registry_guard.push(check_def);
-            Ok(())
-        })
-        .context("Could not create 'register_check' function")?;
+    // let registry_clone = registry.clone();
+    //
+    // let register_check_fn = lua
+    //     .create_function_mut(move |_, check_table: Table| {
+    //         let check_def = CheckDefinition {
+    //             id: check_table.get("id")?,
+    //             name: check_table.get("name")?,
+    //             description: check_table.get("description")?,
+    //             severity: check_table.get("severity")?,
+    //             run: check_table.get("run")?,
+    //         };
+    //         let mut registry_guard = registry_clone.lock().map_err(|e| {
+    //             mlua::Error::RuntimeError(format!(
+    //                 "Failed to acquire mutex: {}",
+    //                 e
+    //             ))
+    //         })?;
+    //         registry_guard.push(check_def);
+    //         Ok(())
+    //     })
+    //     .context("Could not create 'register_check' function")?;
 
     let compile_fn = lua
         .create_function(|_, pattern: String| match Regex::new(&pattern) {
@@ -44,10 +42,10 @@ pub fn init_lua(registry: &CheckRegistry) -> Result<Lua> {
         .set("regex", regex_module)
         .context("Could not set 'regex' global")?;
 
-    lua.globals()
-        .set("register_check", register_check_fn)
-        .context("Could not set 'register_check' global")?;
-
+    // lua.globals()
+    //     .set("register_check", register_check_fn)
+    //     .context("Could not set 'register_check' global")?;
+    //
     Ok(lua)
 }
 

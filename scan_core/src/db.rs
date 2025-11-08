@@ -5,6 +5,7 @@ use crate::db::models::*;
 use anyhow::Result;
 use sqlx::PgPool;
 
+#[derive(Debug, Clone)]
 pub struct Db {
     pub pool: PgPool,
 }

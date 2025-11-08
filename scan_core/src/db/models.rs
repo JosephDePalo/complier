@@ -34,7 +34,7 @@ pub enum ScanStatus {
     Failed,
 }
 
-#[derive(Debug, Deserialize, FromRow)]
+#[derive(Debug, Deserialize, FromRow, Clone)]
 pub struct Device {
     pub id: i64,
     pub address: String,

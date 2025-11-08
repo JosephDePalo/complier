@@ -45,64 +45,64 @@ impl CheckResult {
     }
 }
 
-#[derive(Clone)]
-pub struct CheckRunner {
-    pub lua: Lua,
-    pub registry: CheckRegistry,
-}
-
-impl CheckRunner {
-    pub fn new() -> Result<Self> {
-        let registry: CheckRegistry = Arc::new(Mutex::new(Vec::new()));
-
-        let lua = init_lua(&registry)
-            .context("Could not initialize Lua interpreter")?;
-
-        Ok(CheckRunner { lua, registry })
-    }
-
-    pub fn clear(self: &mut Self) -> Result<()> {
-        self.registry
-            .lock()
-            .map_err(|e| anyhow::anyhow!("Failed to acquire mutex: {}", e))?
-            .clear();
-        self.lua = init_lua(&self.registry)
-            .context("Could not reinitialize Lua interpreter")?;
-
-        Ok(())
-    }
-
-    pub fn load_file(self: &Self, path: &str) -> mlua::Result<()> {
-        let lua_code = fs::read_to_string(path)?;
-        self.lua.load(&lua_code).exec()?;
-        Ok(())
-    }
-
-    pub async fn run_checks(
-        self: &Self,
-        session: mlua::AnyUserData,
-    ) -> Result<Vec<CheckResult>> {
-        let checks = {
-            self.registry
-                .lock()
-                .map_err(|e| anyhow::anyhow!("Failed to acquire mutex: {}", e))?
-                .clone()
-        };
-        let mut db: Vec<CheckResult> = vec![];
-        for check in checks.iter() {
-            let (status, msg): (bool, String) =
-                check.run.call_async((session.clone(),)).await?;
-            db.push(CheckResult::from_check(check, status, msg));
-        }
-        Ok(db)
-    }
-
-    pub fn exclude_checks(self: &Self, ids: &Vec<String>) -> Result<()> {
-        let mut registry_guard = self
-            .registry
-            .lock()
-            .map_err(|e| anyhow::anyhow!("Failed to acquire mutex: {}", e))?;
-        registry_guard.retain(|c| !ids.contains(&c.id));
-        Ok(())
-    }
-}
+// #[derive(Clone)]
+// pub struct CheckRunner {
+//     pub lua: Lua,
+//     pub registry: CheckRegistry,
+// }
+//
+// impl CheckRunner {
+//     pub fn new() -> Result<Self> {
+//         let registry: CheckRegistry = Arc::new(Mutex::new(Vec::new()));
+//
+//         let lua = init_lua(&registry)
+//             .context("Could not initialize Lua interpreter")?;
+//
+//         Ok(CheckRunner { lua, registry })
+//     }
+//
+//     pub fn clear(self: &mut Self) -> Result<()> {
+//         self.registry
+//             .lock()
+//             .map_err(|e| anyhow::anyhow!("Failed to acquire mutex: {}", e))?
+//             .clear();
+//         self.lua = init_lua(&self.registry)
+//             .context("Could not reinitialize Lua interpreter")?;
+//
+//         Ok(())
+//     }
+//
+//     pub fn load_file(self: &Self, path: &str) -> mlua::Result<()> {
+//         let lua_code = fs::read_to_string(path)?;
+//         self.lua.load(&lua_code).exec()?;
+//         Ok(())
+//     }
+//
+//     pub async fn run_checks(
+//         self: &Self,
+//         session: mlua::AnyUserData,
+//     ) -> Result<Vec<CheckResult>> {
+//         let checks = {
+//             self.registry
+//                 .lock()
+//                 .map_err(|e| anyhow::anyhow!("Failed to acquire mutex: {}", e))?
+//                 .clone()
+//         };
+//         let mut db: Vec<CheckResult> = vec![];
+//         for check in checks.iter() {
+//             let (status, msg): (bool, String) =
+//                 check.run.call_async((session.clone(),)).await?;
+//             db.push(CheckResult::from_check(check, status, msg));
+//         }
+//         Ok(db)
+//     }
+//
+//     pub fn exclude_checks(self: &Self, ids: &Vec<String>) -> Result<()> {
+//         let mut registry_guard = self
+//             .registry
+//             .lock()
+//             .map_err(|e| anyhow::anyhow!("Failed to acquire mutex: {}", e))?;
+//         registry_guard.retain(|c| !ids.contains(&c.id));
+//         Ok(())
+//     }
+// }
