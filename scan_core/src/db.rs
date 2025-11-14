@@ -1,20 +1,24 @@
 pub mod crypto;
 pub mod models;
 
+use crate::db::crypto::*;
 use crate::db::models::*;
 
+use aes_gcm::Aes256Gcm;
 use anyhow::Result;
 use sqlx::PgPool;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Db {
     pub pool: PgPool,
+    pub cipher: Aes256Gcm,
 }
 
 impl Db {
-    pub async fn new(db_url: &str) -> Result<Self> {
+    pub async fn new(db_url: &str, master_key: &str) -> Result<Self> {
         let pool = PgPool::connect(db_url).await?;
-        Ok(Self { pool })
+        let cipher = make_cipher(master_key);
+        Ok(Self { pool, cipher })
     }
 
     // --- Device CRUD ---
@@ -22,7 +26,10 @@ impl Db {
     pub async fn get_all_devices(self: &Self) -> Result<Vec<Device>> {
         let devices = sqlx::query_as!(
             Device,
-            r"SELECT id, address, username, password FROM devices"
+            r#"
+            SELECT id, address, username, encrypted_password, password_nonce
+            FROM devices
+            "#
         )
         .fetch_all(&self.pool)
         .await?;
@@ -35,16 +42,19 @@ impl Db {
         username: String,
         password: String,
     ) -> Result<Device> {
+        let (nonce, enc_password) =
+            encrypt_password(&self.cipher, password.as_str())?;
         let result = sqlx::query_as!(
             Device,
             r#"
-            INSERT INTO devices (address, username, password)
-            VALUES ($1, $2, $3)
-            RETURNING id, address, username, password
+            INSERT INTO devices (address, username, encrypted_password, password_nonce)
+            VALUES ($1, $2, $3, $4)
+            RETURNING id, address, username, encrypted_password, password_nonce
             "#,
             address,
             username,
-            password
+            enc_password,
+            nonce
         )
         .fetch_one(&self.pool)
         .await?;
@@ -52,10 +62,16 @@ impl Db {
     }
 
     pub async fn get_device(self: &Self, id: i64) -> Result<Option<Device>> {
-        let device =
-            sqlx::query_as!(Device, r"SELECT id, address, username, password FROM devices WHERE id = $1", id)
-                .fetch_optional(&self.pool)
-                .await?;
+        let device = sqlx::query_as!(
+            Device,
+            r#"
+            SELECT id, address, username, encrypted_password, password_nonce
+            FROM devices WHERE id = $1
+            "#,
+            id
+        )
+        .fetch_optional(&self.pool)
+        .await?;
         Ok(device)
     }
 
@@ -66,18 +82,25 @@ impl Db {
         username: String,
         password: String,
     ) -> Result<Device> {
+        let (enc_password, nonce) =
+            encrypt_password(&self.cipher, password.as_str())?;
         let device = sqlx::query_as!(
             Device,
             r#"
             UPDATE devices
-            SET address = $2, username = $3, password = $4
+            SET
+                address = $2,
+                username = $3,
+                encrypted_password = $4,
+                password_nonce = $5
             WHERE id = $1
-            RETURNING id, address, username, password
+            RETURNING id, address, username, encrypted_password, password_nonce
             "#,
             id,
             address,
             username,
-            password
+            enc_password,
+            nonce
         )
         .fetch_one(&self.pool)
         .await?;

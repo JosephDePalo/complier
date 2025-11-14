@@ -8,6 +8,7 @@ use mlua::{Function, Lua, LuaSerdeExt, Value};
 use serde::Deserialize;
 use tokio::task::JoinHandle;
 
+use crate::db::crypto::decrypt_password;
 use crate::{db::Db, scanner::lua::init_lua};
 use crate::{
     db::models::{CheckStatus, ScanStatus},
@@ -46,12 +47,18 @@ impl Scanner {
             let rules = rules.clone();
             let device = device.clone();
 
+            let password = decrypt_password(
+                &self.db.cipher,
+                device.password_nonce,
+                device.encrypted_password,
+            )?;
+
             let handle: JoinHandle<Result<()>> =
                 tokio::task::spawn(async move {
                     let session = SSHSession::new(
                         device.address.as_str(),
                         device.username.as_str(),
-                        device.password.as_str(),
+                        password.as_str(),
                     )
                     .await?;
 

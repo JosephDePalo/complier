@@ -39,7 +39,8 @@ pub struct Device {
     pub id: i64,
     pub address: String,
     pub username: String,
-    pub password: String,
+    pub encrypted_password: Vec<u8>,
+    pub password_nonce: Vec<u8>,
 }
 
 #[derive(Debug, FromRow)]

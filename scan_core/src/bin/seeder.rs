@@ -26,7 +26,8 @@ async fn main() -> Result<()> {
     dotenv().ok();
     let db_url = env::var("DATABASE_URL")
         .expect("Environment variable 'DATABASE_URL' not set");
-    let db = Db::new(db_url.as_str()).await?;
+    let master_key = env::var("MASTER_KEY")?;
+    let db = Db::new(db_url.as_str(), master_key.as_str()).await?;
 
     let lua = Lua::new();
 
@@ -47,6 +48,9 @@ async fn main() -> Result<()> {
         .await?;
         println!("Added '{}'", meta.id);
     }
+
+    // db.add_device("Address".into(), "Username".into(), "Password".into())
+    //     .await?;
 
     Ok(())
 }
